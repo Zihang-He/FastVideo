@@ -193,11 +193,10 @@ class InferenceArgs:
             help="Flow shift parameter",
         )
         parser.add_argument(
-            "--flow-shift",
-            "--shift",
-            type=int,
+            "--time-shift",
+            type=float,
             default=InferenceArgs.time_shift,
-            help="Flow shift parameter",
+            help="Time shift parameter",
         )
         parser.add_argument(
             "--output-type",

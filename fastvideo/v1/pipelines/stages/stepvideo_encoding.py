@@ -1,34 +1,41 @@
-# SPDX-License-Identifier: Apache-2.0
-"""
-Pipeline stages for diffusion models.
-
-This package contains the various stages that can be composed to create
-complete diffusion pipelines.
-"""
-
+import asyncio
+from fastvideo.v1.forward_context import set_forward_context
+from fastvideo.v1.inference_args import InferenceArgs
+from fastvideo.v1.logger import init_logger
+from fastvideo.v1.pipelines.pipeline_batch_info import ForwardBatch
 from fastvideo.v1.pipelines.stages.base import PipelineStage
-from fastvideo.v1.pipelines.stages.clip_text_encoding import (
-    CLIPTextEncodingStage)
-from fastvideo.v1.pipelines.stages.conditioning import ConditioningStage
-from fastvideo.v1.pipelines.stages.decoding import DecodingStage
-from fastvideo.v1.pipelines.stages.denoising import DenoisingStage
-from fastvideo.v1.pipelines.stages.input_validation import InputValidationStage
-from fastvideo.v1.pipelines.stages.latent_preparation import (
-    LatentPreparationStage)
-from fastvideo.v1.pipelines.stages.llama_encoding import LlamaEncodingStage
-from fastvideo.v1.pipelines.stages.timestep_preparation import (
-    TimestepPreparationStage)
-from fastvideo.v1.pipelines.stages.stepvideo_encoding import StepvideoPromptEncodingStage
 
-__all__ = [
-    "PipelineStage",
-    "InputValidationStage",
-    "TimestepPreparationStage",
-    "LatentPreparationStage",
-    "ConditioningStage",
-    "DenoisingStage",
-    "DecodingStage",
-    "LlamaEncodingStage",
-    "CLIPTextEncodingStage",
-    "StepvideoPromptEncodingStage"
-]
+logger = init_logger(__name__)
+
+# The dedicated stepvideo prompt encoding stage.
+class StepvideoPromptEncodingStage(PipelineStage):
+    """
+    Stage for encoding prompts using the remote caption API.
+    
+    This stage applies the magic string transformations and calls
+    the remote caption service asynchronously to get:
+      - primary prompt embeddings,
+      - an attention mask,
+      - and a clip embedding.
+    """
+    def __init__(self, caption_client) -> None:
+        super().__init__()
+        self.caption_client = caption_client  # This should have a call_caption(prompts: List[str]) method.
+
+    def forward(self, batch: ForwardBatch, inference_args) -> ForwardBatch:
+        # 1. Preprocess the prompt
+        # Construct a list where the first entry is the prompt appended with the positive magic string.
+        prompts = [batch.prompt + batch.extra.get("pos_magic")]
+        bs = len(prompts)
+        # Then add the negative magic prompt repeated 'bs' times.
+        prompts += [batch.extra.get("neg_magic")] * bs
+
+        # 2. Call the remote caption API asynchronously.
+        # This mimics the v0 behavior using asyncio.run.
+        data = asyncio.run(self.caption_client.call_caption(prompts))
+        
+        # 3. Cast the returned tensors to the proper device.
+        batch.prompt_embeds = data['y']
+        batch.prompt_attention_mask = data['y_mask']
+        batch.clip_embedding = data['clip_embedding']
+        return batch

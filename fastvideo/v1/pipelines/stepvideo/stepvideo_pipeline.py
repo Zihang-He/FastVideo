@@ -50,7 +50,7 @@ def call_api_gen(url, api, port=8080):
     return _fn
 
 
-class StepvideoPipeline(ComposedPipelineBase):
+class StepVideoPipeline(ComposedPipelineBase):
 
     _required_config_modules = [
         "transformer", "scheduler"
@@ -92,4 +92,4 @@ class StepvideoPipeline(ComposedPipelineBase):
 
 
 
-EntryClass = StepvideoPipeline
+EntryClass = StepVideoPipeline

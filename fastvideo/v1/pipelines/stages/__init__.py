@@ -18,6 +18,7 @@ from fastvideo.v1.pipelines.stages.latent_preparation import (
 from fastvideo.v1.pipelines.stages.llama_encoding import LlamaEncodingStage
 from fastvideo.v1.pipelines.stages.timestep_preparation import (
     TimestepPreparationStage)
+from fastvideo.v1.pipelines.stages.stepvideo_encoding import StepvideoPromptEncodingStage
 
 __all__ = [
     "PipelineStage",
@@ -29,4 +30,5 @@ __all__ = [
     "DecodingStage",
     "LlamaEncodingStage",
     "CLIPTextEncodingStage",
+    "StepvideoPromptEncodingStage"
 ]
