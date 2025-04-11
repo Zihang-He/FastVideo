@@ -1,6 +1,6 @@
 #!/bin/bash
 
-num_gpus=4
+num_gpus=2
 export FASTVIDEO_ATTENTION_BACKEND=
 export MODEL_BASE=FastVideo/FastHunyuan-diffusers
 # export MODEL_BASE=hunyuanvideo-community/HunyuanVideo
@@ -9,8 +9,8 @@ export MODEL_BASE=FastVideo/FastHunyuan-diffusers
 # dit model and tp_size is used for encoder models.
 torchrun --nnodes=1 --nproc_per_node=$num_gpus --master_port 29503 \
     fastvideo/v1/sample/v1_fastvideo_inference.py \
-    --sp_size 4 \
-    --tp_size 4 \
+    --sp_size 2 \
+    --tp_size 2 \
     --height 720 \
     --width 1280 \
     --num_frames 125 \

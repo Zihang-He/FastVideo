@@ -32,6 +32,7 @@ class InferenceArgs:
     guidance_rescale: float = 0.0
     embedded_cfg_scale: float = 6.0
     flow_shift: int = 7
+    time_shift: float = 13.0
 
     output_type: str = "pil"
 
@@ -189,6 +190,13 @@ class InferenceArgs:
             "--shift",
             type=int,
             default=InferenceArgs.flow_shift,
+            help="Flow shift parameter",
+        )
+        parser.add_argument(
+            "--flow-shift",
+            "--shift",
+            type=int,
+            default=InferenceArgs.time_shift,
             help="Flow shift parameter",
         )
         parser.add_argument(
