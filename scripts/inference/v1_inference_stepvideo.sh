@@ -10,7 +10,7 @@ torchrun --nnodes=1 --nproc_per_node=$num_gpus --master_port 29503 \
     --tp_size 1 \
     --height 256 \
     --width 512 \
-    --num_frames 20 \
+    --num_frames 21 \
     --num_inference_steps 6 \
     --embedded_cfg_scale 9.0 \
     --prompt_path ./assets/prompt.txt \

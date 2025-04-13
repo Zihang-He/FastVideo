@@ -1,26 +1,42 @@
+# Copyright 2025 StepFun Inc. All Rights Reserved.
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+# ==============================================================================
 from typing import Dict, Optional
 
 import torch
-from diffusers.configuration_utils import ConfigMixin, register_to_config
-from diffusers.models.modeling_utils import ModelMixin
+from diffusers.configuration_utils import register_to_config
 from einops import rearrange, repeat
 from torch import nn
 
 # import everything from v1 later (reimplement)
-# from fastvideo.v1.layers.visual_embedding import (
-#                                                   PatchEmbed,
-#                                                   )
-from fastvideo.models.stepvideo.modules.blocks import PatchEmbed, StepVideoTransformerBlock
+from fastvideo.v1.layers.visual_embedding import (
+                                                  PatchEmbed,
+                                                  )
+from fastvideo.v1.models.dits.base import BaseDiT
+from fastvideo.models.stepvideo.modules.blocks import StepVideoTransformerBlock
 from fastvideo.models.stepvideo.modules.normalization import AdaLayerNormSingle, PixArtAlphaTextProjection
 from fastvideo.models.stepvideo.parallel import parallel_forward
 from fastvideo.models.stepvideo.utils import with_empty_init
 
 
-class StepVideoModel(ModelMixin, ConfigMixin):
-    _no_split_modules = ["StepVideoTransformerBlock", "PatchEmbed"]
+class StepVideoModel(BaseDiT):
+    # (Optional) Keep the same attribute for compatibility with splitting, etc.
+    _fsdp_shard_conditions = [
+        lambda n, m: "transformer_blocks" in n and n.split(".")[-1].isdigit(),
+        lambda n, m: "pos_embed" in n  # If needed for the patch embedding.
+    ]
+    _param_names_mapping = {
 
-    @with_empty_init
-    @register_to_config
+    }
     def __init__(
         self,
         num_attention_heads: int = 48,
@@ -38,44 +54,60 @@ class StepVideoModel(ModelMixin, ConfigMixin):
         attention_type: Optional[str] = "parallel",
     ):
         super().__init__()
-
-        # Set some common variables used across the board.
-        self.inner_dim = self.config.num_attention_heads * self.config.attention_head_dim
+        # Instead of using self.config, assign each parameter as an instance variable.
+        self.num_attention_heads = num_attention_heads
+        self.attention_head_dim = attention_head_dim
+        self.in_channels = in_channels
         self.out_channels = in_channels if out_channels is None else out_channels
-
+        self.num_layers = num_layers
+        self.dropout = dropout
+        self.patch_size = patch_size
+        self.norm_type = norm_type
+        self.norm_elementwise_affine = norm_elementwise_affine
+        self.norm_eps = norm_eps
         self.use_additional_conditions = use_additional_conditions
+        self.caption_channels = caption_channels
+        self.attention_type = attention_type
 
+        # Compute inner dimension.
+        self.inner_dim = self.num_attention_heads * self.attention_head_dim
+
+        # Image/video patch embedding.
         self.pos_embed = PatchEmbed(
             patch_size=patch_size,
-            in_channels=self.config.in_channels,
+            in_chans=self.in_channels,
             embed_dim=self.inner_dim,
         )
 
+        # Transformer blocks.
         self.transformer_blocks = nn.ModuleList([
-            StepVideoTransformerBlock(dim=self.inner_dim,
-                                      attention_head_dim=self.config.attention_head_dim,
-                                      attention_type=attention_type) for _ in range(self.config.num_layers)
+            StepVideoTransformerBlock(
+                dim=self.inner_dim,
+                attention_head_dim=self.attention_head_dim,
+                attention_type=attention_type
+            )
+            for _ in range(self.num_layers)
         ])
 
-        # 3. Output blocks.
+        # Output blocks.
         self.norm_out = nn.LayerNorm(self.inner_dim, eps=norm_eps, elementwise_affine=norm_elementwise_affine)
-        self.scale_shift_table = nn.Parameter(torch.randn(2, self.inner_dim) / self.inner_dim**0.5)
+        self.scale_shift_table = nn.Parameter(torch.randn(2, self.inner_dim) / (self.inner_dim ** 0.5))
         self.proj_out = nn.Linear(self.inner_dim, patch_size * patch_size * self.out_channels)
-        self.patch_size = patch_size
 
+        # Time modulation via adaptive layer norm.
         self.adaln_single = AdaLayerNormSingle(self.inner_dim, use_additional_conditions=self.use_additional_conditions)
 
-        if isinstance(self.config.caption_channels, int):
-            caption_channel = self.config.caption_channels
+        # Set up caption conditioning.
+        if isinstance(self.caption_channels, int):
+            caption_channel = self.caption_channels
         else:
-            caption_channel, clip_channel = self.config.caption_channels
+            caption_channel, clip_channel = self.caption_channels
             self.clip_projection = nn.Linear(clip_channel, self.inner_dim)
-
         self.caption_norm = nn.LayerNorm(caption_channel, eps=norm_eps, elementwise_affine=norm_elementwise_affine)
-
         self.caption_projection = PixArtAlphaTextProjection(in_features=caption_channel, hidden_size=self.inner_dim)
 
-        self.parallel = attention_type == 'parallel'
+        # Flag to indicate if using parallel attention.
+        self.parallel = (attention_type == "parallel")
 
     def patchfy(self, hidden_states):
         hidden_states = rearrange(hidden_states, 'b f c h w -> (b f) c h w')
