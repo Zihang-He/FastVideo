@@ -95,9 +95,10 @@ class StepVideoPipeline(ComposedPipelineBase):
         vae = call_api_gen("127.0.0.1", 'vae')
         self.add_module("caption", caption)
         self.add_module("vae", vae)
-        inference_args.vae_scale_factor = vae.spatial_compression_ratio
+        # same as setting vae_scale_factor to 16 for default. TODO: check original implementation
+        inference_args.vae_scale_factor = vae.spatial_compression_ratio if getattr(self, "vae", None) else 16
         inference_args.num_channels_latents = self.get_module("transformer").in_channels
-
+        
     def load_modules(self, inference_args: InferenceArgs) -> Dict[str, Any]:
         """
         Load the modules from the config.

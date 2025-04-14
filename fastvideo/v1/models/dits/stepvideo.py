@@ -70,19 +70,19 @@ class StepVideoModel(BaseDiT):
         self.attention_type = attention_type
 
         # Compute inner dimension.
-        self.inner_dim = self.num_attention_heads * self.attention_head_dim
+        self.hidden_size = self.num_attention_heads * self.attention_head_dim
 
         # Image/video patch embedding.
         self.pos_embed = PatchEmbed(
             patch_size=patch_size,
             in_chans=self.in_channels,
-            embed_dim=self.inner_dim,
+            embed_dim=self.hidden_size,
         )
 
         # Transformer blocks.
         self.transformer_blocks = nn.ModuleList([
             StepVideoTransformerBlock(
-                dim=self.inner_dim,
+                dim=self.hidden_size,
                 attention_head_dim=self.attention_head_dim,
                 attention_type=attention_type
             )
@@ -90,21 +90,21 @@ class StepVideoModel(BaseDiT):
         ])
 
         # Output blocks.
-        self.norm_out = nn.LayerNorm(self.inner_dim, eps=norm_eps, elementwise_affine=norm_elementwise_affine)
-        self.scale_shift_table = nn.Parameter(torch.randn(2, self.inner_dim) / (self.inner_dim ** 0.5))
-        self.proj_out = nn.Linear(self.inner_dim, patch_size * patch_size * self.out_channels)
+        self.norm_out = nn.LayerNorm(self.hidden_size, eps=norm_eps, elementwise_affine=norm_elementwise_affine)
+        self.scale_shift_table = nn.Parameter(torch.randn(2, self.hidden_size) / (self.hidden_size ** 0.5))
+        self.proj_out = nn.Linear(self.hidden_size, patch_size * patch_size * self.out_channels)
 
         # Time modulation via adaptive layer norm.
-        self.adaln_single = AdaLayerNormSingle(self.inner_dim, use_additional_conditions=self.use_additional_conditions)
+        self.adaln_single = AdaLayerNormSingle(self.hidden_size, use_additional_conditions=self.use_additional_conditions)
 
         # Set up caption conditioning.
         if isinstance(self.caption_channels, int):
             caption_channel = self.caption_channels
         else:
             caption_channel, clip_channel = self.caption_channels
-            self.clip_projection = nn.Linear(clip_channel, self.inner_dim)
+            self.clip_projection = nn.Linear(clip_channel, self.hidden_size)
         self.caption_norm = nn.LayerNorm(caption_channel, eps=norm_eps, elementwise_affine=norm_elementwise_affine)
-        self.caption_projection = PixArtAlphaTextProjection(in_features=caption_channel, hidden_size=self.inner_dim)
+        self.caption_projection = PixArtAlphaTextProjection(in_features=caption_channel, hidden_size=self.hidden_size)
 
         # Flag to indicate if using parallel attention.
         self.parallel = (attention_type == "parallel")
@@ -156,6 +156,7 @@ class StepVideoModel(BaseDiT):
         fps: torch.Tensor = None,
         return_dict: bool = True,
         mask_strategy=None,
+        guidance=None,
     ):
         assert hidden_states.ndim == 5
         "hidden_states's shape should be (bsz, f, ch, h ,w)"

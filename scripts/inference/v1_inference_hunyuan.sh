@@ -11,9 +11,9 @@ torchrun --nnodes=1 --nproc_per_node=$num_gpus --master_port 29503 \
     fastvideo/v1/sample/v1_fastvideo_inference.py \
     --sp_size 2 \
     --tp_size 2 \
-    --height 720 \
-    --width 1280 \
-    --num_frames 125 \
+    --height 256 \
+    --width 512 \
+    --num_frames 21 \
     --num_inference_steps 6 \
     --guidance_scale 1 \
     --embedded_cfg_scale 6 \
