@@ -598,6 +598,9 @@ class CLIPVisionTransformer(nn.Module):
             inputs_embeds=hidden_states,
             return_all_hidden_states=return_all_hidden_states)
 
+        if not return_all_hidden_states:
+            encoder_outputs = encoder_outputs[0]
+
         # Handle post-norm (if applicable) and stacks feature layers if needed
         encoder_outputs = resolve_visual_encoder_outputs(
             encoder_outputs, feature_sample_layers, self.post_layernorm,
@@ -654,6 +657,8 @@ class CLIPVisionModel(nn.Module, SupportsQuant):
         layer_count = len(self.vision_model.encoder.layers)
 
         for name, loaded_weight in weights:
+            if name.startswith("visual_projection"):
+                continue
             # post_layernorm is not needed in CLIPVisionModel
             if (name.startswith("vision_model.post_layernorm")
                     and self.vision_model.post_layernorm is None):
