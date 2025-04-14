@@ -25,14 +25,14 @@ class StepvideoPromptEncodingStage(PipelineStage):
     def forward(self, batch: ForwardBatch, inference_args) -> ForwardBatch:
         # 1. Preprocess the prompt
         # Construct a list where the first entry is the prompt appended with the positive magic string.
-        prompts = [batch.prompt + batch.extra.get("pos_magic")]
+        prompts = [batch.prompt + inference_args.pos_magic]
         bs = len(prompts)
         # Then add the negative magic prompt repeated 'bs' times.
-        prompts += [batch.extra.get("neg_magic")] * bs
+        prompts += [inference_args.neg_magic] * bs
 
         # 2. Call the remote caption API asynchronously.
         # This mimics the v0 behavior using asyncio.run.
-        data = asyncio.run(self.caption_client.call_caption(prompts))
+        data = asyncio.run(self.caption_client(prompts))
         
         # 3. Cast the returned tensors to the proper device.
         batch.prompt_embeds = data['y']
