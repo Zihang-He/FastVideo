@@ -91,8 +91,12 @@ class StepVideoPipeline(ComposedPipelineBase):
         """
         Initialize the pipeline.
         """
-        self.add_module("caption", call_api_gen("127.0.0.1", 'caption'))
-        self.add_module("vae", call_api_gen("127.0.0.1", 'vae'))
+        caption = call_api_gen("127.0.0.1", 'caption')
+        vae = call_api_gen("127.0.0.1", 'vae')
+        self.add_module("caption", caption)
+        self.add_module("vae", vae)
+        inference_args.vae_scale_factor = vae.spatial_compression_ratio
+        inference_args.num_channels_latents = self.get_module("transformer").in_channels
 
     def load_modules(self, inference_args: InferenceArgs) -> Dict[str, Any]:
         """

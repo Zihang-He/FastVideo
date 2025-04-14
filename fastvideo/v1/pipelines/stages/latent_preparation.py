@@ -72,7 +72,7 @@ class LatentPreparationStage(PipelineStage):
         # Calculate latent shape
         shape = (
             batch_size,
-            inference_args.num_channels_latents,
+            batch.num_channels_latents,
             num_frames,
             height // inference_args.vae_scale_factor,
             width // inference_args.vae_scale_factor,

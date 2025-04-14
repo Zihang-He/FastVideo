@@ -266,6 +266,7 @@ class _ModelRegistry:
         normalized_arch = []
         for model in architectures:
             if model not in self.models:
+                print(model,"\n\n")
                 model = "TransformersModel"
             normalized_arch.append(model)
         return normalized_arch
