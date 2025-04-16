@@ -22,10 +22,11 @@ from fastvideo.v1.layers.visual_embedding import (
                                                   PatchEmbed,
                                                   )
 from fastvideo.v1.models.dits.base import BaseDiT
-from fastvideo.models.stepvideo.modules.blocks import StepVideoTransformerBlock
-from fastvideo.models.stepvideo.modules.normalization import AdaLayerNormSingle, PixArtAlphaTextProjection
-from fastvideo.models.stepvideo.parallel import parallel_forward
-from fastvideo.models.stepvideo.utils import with_empty_init
+from fastvideo.v1.models.dits.temp import StepVideoTransformerBlock, AdaLayerNormSingle, PixArtAlphaTextProjection, parallel_forward, with_empty_init
+# from fastvideo.models.stepvideo.modules.blocks import StepVideoTransformerBlock
+# from fastvideo.models.stepvideo.modules.normalization import AdaLayerNormSingle, PixArtAlphaTextProjection
+# from fastvideo.models.stepvideo.parallel import parallel_forward
+# from fastvideo.models.stepvideo.utils import with_empty_init
 
 
 class StepVideoModel(BaseDiT):
@@ -110,7 +111,8 @@ class StepVideoModel(BaseDiT):
         self.parallel = (attention_type == "parallel")
 
     def patchfy(self, hidden_states):
-        hidden_states = rearrange(hidden_states, 'b f c h w -> (b f) c h w')
+        hidden_states = rearrange(hidden_states, 'b c f h w -> (b f) c h w')
+        # hidden_states = rearrange(hidden_states, 'b f c h w -> b c f h w')
         hidden_states = self.pos_embed(hidden_states)
         return hidden_states
 
@@ -163,7 +165,7 @@ class StepVideoModel(BaseDiT):
 
         bsz, frame, _, height, width = hidden_states.shape
         height, width = height // self.patch_size, width // self.patch_size
-
+        print("hidden_states shape",hidden_states.shape)
         hidden_states = self.patchfy(hidden_states)
         len_frame = hidden_states.shape[1]
 
@@ -177,7 +179,7 @@ class StepVideoModel(BaseDiT):
             }
         else:
             added_cond_kwargs = {}
-
+        print(f"timestep {timestep}")
         timestep, embedded_timestep = self.adaln_single(timestep, added_cond_kwargs=added_cond_kwargs)
 
         encoder_hidden_states = self.caption_projection(self.caption_norm(encoder_hidden_states))

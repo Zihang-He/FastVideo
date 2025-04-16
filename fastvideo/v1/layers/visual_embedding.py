@@ -43,8 +43,8 @@ class PatchEmbed(nn.Module):
 
         self.patch_size = patch_size
         self.flatten = flatten
-
-        self.proj = nn.Conv3d(in_chans,
+        print(f"in_chans: {in_chans}, embed_dim: {embed_dim}, patch_size: {patch_size}")
+        self.proj = nn.Conv2d(in_chans,
                               embed_dim,
                               kernel_size=patch_size,
                               stride=patch_size,
